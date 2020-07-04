@@ -21,15 +21,15 @@ impl Art {
         }
     }
 
-    pub fn new_from_file(filename: String) -> Result<Art, String> {
+    pub fn new_from_file(filename: String) -> Result<Art, std::io::ErrorKind> {
         let mut file = match File::open(filename) {
             Ok(o) => o,
-            Err(_e) => return Err(String::from("File doesn't exist!")),
+            Err(_e) => return Err(std::io::ErrorKind::NotFound),
         };
         let mut file_contents = String::new();
         match file.read_to_string(&mut file_contents) {
             Ok(o) => o,
-            Err(_e) => return Err(String::from("File is corrupted!")),
+            Err(_e) => return Err(std::io::ErrorKind::InvalidData),
         };
 
         let mut data: Vec<char> = Vec::new();
@@ -53,7 +53,7 @@ impl Art {
         self,
         character: char,
         quantity: usize,
-    ) -> Result<Art, String> {
+    ) -> Result<Art, std::io::ErrorKind> {
         let mut new_painting = self.clone();
         let mut generator = rand::thread_rng();
         let mut misses = 0;
@@ -71,7 +71,7 @@ impl Art {
             if hits == quantity {
                 return Ok(new_painting);
             } else if misses == 2 * new_painting.grid.len() {
-                return Err(String::from("Art cannot hold all characters!"));
+                return Err(std::io::ErrorKind::UnexpectedEof);
             }
         }
     }
