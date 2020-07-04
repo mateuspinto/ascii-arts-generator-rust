@@ -4,6 +4,8 @@ use std::fmt::{Display, Error, Formatter};
 use std::fs::File;
 use std::io::prelude::*;
 
+mod tests;
+
 const BLANK_SPACE: char = '.';
 
 pub struct Art {
