@@ -81,10 +81,18 @@ impl Art {
         false
     }
 
-    pub fn new_blank(height: usize, widht: usize) -> Art {
+    fn raw_new_blank(height: usize, widht: usize) -> Art {
         Art {
             grid: vec![BLANK_SPACE; height * widht],
             widht: widht,
+        }
+    }
+
+    pub fn new_blank(height: usize, widht: usize) -> Result<Art, std::io::ErrorKind> {
+        if height == 0 || widht == 0 {
+            Err(std::io::ErrorKind::UnexpectedEof)
+        } else {
+            Ok(Art::raw_new_blank(height, widht))
         }
     }
 
@@ -117,12 +125,12 @@ impl Art {
     }
 
     pub fn insert_characters_randomly(
-        // TODO: Rewrite function using X, Y
         &self,
         character: char,
         quantity: usize,
     ) -> Result<Art, std::io::ErrorKind> {
         if quantity > self.grid.len() {
+            // Art doens't fit in destination
             return Err(std::io::ErrorKind::UnexpectedEof);
         }
         let mut new_painting = self.clone();
@@ -131,9 +139,11 @@ impl Art {
         let mut hits = 0;
 
         loop {
-            let position = generator.gen_range(0, new_painting.grid.len());
-            if new_painting.grid[position] == BLANK_SPACE {
-                new_painting.grid[position] = character;
+            let x = generator.gen_range(0, self.widht);
+            let y = generator.gen_range(0, self.height());
+
+            if new_painting.is_char_blank(x, y) {
+                new_painting.grid[self.get_index(x, y)] = character;
                 hits += 1;
             } else {
                 misses += 1;
@@ -145,6 +155,18 @@ impl Art {
                 return Err(std::io::ErrorKind::InvalidData);
             }
         }
+    }
+
+    fn raw_insert_art(&self, to_be_pasted: &Art, x: usize, y: usize) -> Art {
+        let mut new_painting = self.clone();
+        for j in 0..to_be_pasted.height() {
+            for i in 0..to_be_pasted.widht {
+                if !to_be_pasted.is_char_blank(i, j) {
+                    new_painting.grid[self.get_index(x + i, y + j)] = to_be_pasted.get_char(i, j);
+                }
+            }
+        }
+        new_painting
     }
 
     pub fn insert_art(
@@ -161,15 +183,7 @@ impl Art {
             // Art has colisions between source and destination
             return Err(std::io::ErrorKind::InvalidData);
         }
-        let mut new_painting = self.clone();
-        for j in 0..to_be_pasted.height() {
-            for i in 0..to_be_pasted.widht {
-                if !to_be_pasted.is_char_blank(i, j) {
-                    new_painting.grid[self.get_index(x + i, y + j)] = to_be_pasted.get_char(i, j);
-                }
-            }
-        }
-        Ok(new_painting)
+        Ok(self.raw_insert_art(to_be_pasted, x, y))
     }
 }
 
