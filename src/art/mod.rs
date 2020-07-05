@@ -14,6 +14,9 @@ pub struct Art {
 }
 
 impl Art {
+    pub fn height(&self) -> usize {
+        self.grid.len() / self.widht
+    }
     pub fn new_blank(height: usize, widht: usize) -> Art {
         Art {
             grid: vec![BLANK_SPACE; height * widht],
@@ -50,10 +53,13 @@ impl Art {
     }
 
     pub fn insert_characters_randomly(
-        self,
+        &self,
         character: char,
         quantity: usize,
     ) -> Result<Art, std::io::ErrorKind> {
+        if quantity > self.grid.len() {
+            return Err(std::io::ErrorKind::UnexpectedEof);
+        }
         let mut new_painting = self.clone();
         let mut generator = rand::thread_rng();
         let mut misses = 0;
@@ -71,9 +77,41 @@ impl Art {
             if hits == quantity {
                 return Ok(new_painting);
             } else if misses == 2 * new_painting.grid.len() {
-                return Err(std::io::ErrorKind::UnexpectedEof);
+                return Err(std::io::ErrorKind::InvalidData);
             }
         }
+    }
+
+    pub fn insert_art(
+        &self,
+        to_be_pasted: &Art,
+        x: usize,
+        y: usize,
+    ) -> Result<Art, std::io::ErrorKind> {
+        if y * to_be_pasted.widht + x > self.grid.len() {
+            // Art doens't fit in destination
+            return Err(std::io::ErrorKind::UnexpectedEof);
+        }
+        for j in 0..to_be_pasted.height() {
+            for i in 0..to_be_pasted.widht {
+                if self.grid[(j + y) * self.widht + (i + x)] != BLANK_SPACE
+                    && to_be_pasted.grid[j * to_be_pasted.widht + i] != BLANK_SPACE
+                {
+                    // There is a conflict in some character
+                    return Err(std::io::ErrorKind::InvalidData);
+                }
+            }
+        }
+        let mut new_painting = self.clone();
+        for j in 0..to_be_pasted.height() {
+            for i in 0..to_be_pasted.widht {
+                if to_be_pasted.grid[j * to_be_pasted.widht + i] != BLANK_SPACE {
+                    new_painting.grid[(j + y) * new_painting.widht + (i + x)] =
+                        to_be_pasted.grid[j * to_be_pasted.widht + i];
+                }
+            }
+        }
+        Ok(new_painting)
     }
 }
 
