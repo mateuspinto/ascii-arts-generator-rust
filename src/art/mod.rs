@@ -14,9 +14,73 @@ pub struct Art {
 }
 
 impl Art {
-    pub fn height(&self) -> usize {
+    fn height(&self) -> usize {
         self.grid.len() / self.widht
     }
+
+    fn get_index(&self, x: usize, y: usize) -> usize {
+        y * self.widht + x
+    }
+
+    fn get_char(&self, x: usize, y: usize) -> char {
+        self.grid[self.get_index(x, y)]
+    }
+
+    fn is_char_blank(&self, x: usize, y: usize) -> bool {
+        self.get_char(x, y) == BLANK_SPACE
+    }
+
+    fn get_size(&self) -> (usize, usize) {
+        (self.widht, self.height())
+    }
+
+    fn get_increased_size(&self, x_offset: usize, y_offset: usize) -> (usize, usize) {
+        let mut size = self.get_size();
+        size.0 += x_offset;
+        size.1 += y_offset;
+        size
+    }
+
+    fn size_greater_or_equal_than(&self, to_be_compared: &Art) -> bool {
+        let size_a = self.get_size();
+        let size_b = to_be_compared.get_size();
+
+        if size_a.0 >= size_b.0 && size_a.1 >= size_b.1 {
+            true
+        } else {
+            false
+        }
+    }
+
+    fn size_greater_or_equal_than_increased(
+        &self,
+        to_be_compared: &Art,
+        x_offset: usize,
+        y_offset: usize,
+    ) -> bool {
+        let size_a = self.get_size();
+        let size_b = to_be_compared.get_increased_size(x_offset, y_offset);
+
+        if size_a.0 >= size_b.0 && size_a.1 >= size_b.1 {
+            true
+        } else {
+            false
+        }
+    }
+
+    fn has_colisions(&self, to_be_tested: &Art, x_offset: usize, y_offset: usize) -> bool {
+        for j in 0..self.height() {
+            for i in 0..self.widht {
+                if !self.is_char_blank(i + x_offset, j + y_offset)
+                    && !to_be_tested.is_char_blank(i, j)
+                {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     pub fn new_blank(height: usize, widht: usize) -> Art {
         Art {
             grid: vec![BLANK_SPACE; height * widht],
@@ -53,6 +117,7 @@ impl Art {
     }
 
     pub fn insert_characters_randomly(
+        // TODO: Rewrite function using X, Y
         &self,
         character: char,
         quantity: usize,
@@ -88,26 +153,19 @@ impl Art {
         x: usize,
         y: usize,
     ) -> Result<Art, std::io::ErrorKind> {
-        if y * to_be_pasted.widht + x > self.grid.len() {
+        if !self.size_greater_or_equal_than_increased(to_be_pasted, x, y) {
             // Art doens't fit in destination
             return Err(std::io::ErrorKind::UnexpectedEof);
         }
-        for j in 0..to_be_pasted.height() {
-            for i in 0..to_be_pasted.widht {
-                if self.grid[(j + y) * self.widht + (i + x)] != BLANK_SPACE
-                    && to_be_pasted.grid[j * to_be_pasted.widht + i] != BLANK_SPACE
-                {
-                    // There is a conflict in some character
-                    return Err(std::io::ErrorKind::InvalidData);
-                }
-            }
+        if self.has_colisions(to_be_pasted, x, y) {
+            // Art has colisions between source and destination
+            return Err(std::io::ErrorKind::InvalidData);
         }
         let mut new_painting = self.clone();
         for j in 0..to_be_pasted.height() {
             for i in 0..to_be_pasted.widht {
-                if to_be_pasted.grid[j * to_be_pasted.widht + i] != BLANK_SPACE {
-                    new_painting.grid[(j + y) * new_painting.widht + (i + x)] =
-                        to_be_pasted.grid[j * to_be_pasted.widht + i];
+                if !to_be_pasted.is_char_blank(i, j) {
+                    new_painting.grid[self.get_index(x + i, y + j)] = to_be_pasted.get_char(i, j);
                 }
             }
         }
@@ -126,15 +184,15 @@ impl Clone for Art {
 
 impl Display for Art {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        let mut painting = String::new();
+        let mut display = String::new();
 
-        for (i, x) in self.grid.iter().enumerate() {
-            painting.push(*x);
-            if (i + 1) % self.widht == 0 && (i + 1) != self.grid.len() {
-                painting.push('\n');
+        for j in 0..self.height() {
+            for i in 0..self.widht {
+                display.push(self.get_char(i, j));
             }
+            display.push('\n');
         }
 
-        write!(f, "{}", painting)
+        write!(f, "{}", display)
     }
 }
