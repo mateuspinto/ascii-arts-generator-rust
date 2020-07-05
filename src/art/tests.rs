@@ -2,7 +2,7 @@
 use super::Art;
 #[test]
 fn create_art_from_file() -> Result<(), ()> {
-        let painting = match Art::new_from_file("input/x.txt".to_string()) {
+        let painting = match Art::new_from_file("input/0.txt".to_string()) {
                 Ok(_o) => Ok(()),
                 Err(_e) => Err(()),
         };

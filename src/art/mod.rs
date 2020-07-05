@@ -2,11 +2,20 @@
 use rand::Rng;
 use std::fmt::{Display, Error, Formatter};
 use std::fs::File;
-use std::io::prelude::*;
+use std::io::{self, BufRead};
+use std::path::Path;
 
 mod tests;
 
 const BLANK_SPACE: char = '.';
+
+fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
+where
+    P: AsRef<Path>,
+{
+    let file = File::open(filename)?;
+    Ok(io::BufReader::new(file).lines())
+}
 
 pub struct Art {
     grid: Vec<char>,
@@ -69,8 +78,8 @@ impl Art {
     }
 
     fn has_colisions(&self, to_be_tested: &Art, x_offset: usize, y_offset: usize) -> bool {
-        for j in 0..self.height() {
-            for i in 0..self.widht {
+        for j in 0..to_be_tested.height() {
+            for i in 0..to_be_tested.widht {
                 if !self.is_char_blank(i + x_offset, j + y_offset)
                     && !to_be_tested.is_char_blank(i, j)
                 {
@@ -97,31 +106,29 @@ impl Art {
     }
 
     pub fn new_from_file(filename: String) -> Result<Art, std::io::ErrorKind> {
-        let mut file = match File::open(filename) {
-            Ok(o) => o,
-            Err(_e) => return Err(std::io::ErrorKind::NotFound),
-        };
-        let mut file_contents = String::new();
-        match file.read_to_string(&mut file_contents) {
-            Ok(o) => o,
-            Err(_e) => return Err(std::io::ErrorKind::InvalidData),
-        };
-
         let mut data: Vec<char> = Vec::new();
-        let mut widht: usize = 1;
+        let mut height: usize = 0;
 
-        for x in file_contents.char_indices() {
-            if x.1 == '\n' {
-                widht += 1;
-            } else {
-                data.push(x.1);
+        if let Ok(lines) = read_lines(filename) {
+            for line in lines {
+                if let Ok(raw_line) = line {
+                    for c in raw_line.chars() {
+                        data.push(c);
+                    }
+                    height += 1;
+                } else {
+                    return Err(std::io::ErrorKind::InvalidData);
+                }
             }
-        }
 
-        Ok(Art {
-            grid: data,
-            widht: widht,
-        })
+            let widht = data.len() / height;
+            Ok(Art {
+                grid: data,
+                widht: widht,
+            })
+        } else {
+            Err(std::io::ErrorKind::NotFound)
+        }
     }
 
     pub fn insert_characters_randomly(
@@ -184,6 +191,35 @@ impl Art {
             return Err(std::io::ErrorKind::InvalidData);
         }
         Ok(self.raw_insert_art(to_be_pasted, x, y))
+    }
+
+    pub fn insert_art_randomly(
+        &self,
+        to_be_pasted: &Art,
+        quantity: usize,
+    ) -> Result<Art, std::io::ErrorKind> {
+        let mut new_painting = self.clone();
+        let mut generator = rand::thread_rng();
+        let mut misses = 0;
+        let mut hits = 0;
+
+        loop {
+            let x = generator.gen_range(0, self.widht - to_be_pasted.widht);
+            let y = generator.gen_range(0, self.height() - to_be_pasted.height());
+
+            if !new_painting.has_colisions(to_be_pasted, x, y) {
+                new_painting = new_painting.raw_insert_art(to_be_pasted, x, y);
+                hits += 1;
+            } else {
+                misses += 1;
+            }
+
+            if hits == quantity {
+                return Ok(new_painting);
+            } else if misses == 100 * (new_painting.grid.len() / to_be_pasted.grid.len()) {
+                return Err(std::io::ErrorKind::InvalidData);
+            }
+        }
     }
 }
 
